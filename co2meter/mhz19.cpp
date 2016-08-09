@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TIMEOUT 1000
+#define CMD_SIZE 9 
 
 typedef enum {
     START_BYTE,
@@ -10,8 +10,45 @@ typedef enum {
     CHECK
 } state_t;
 
+/** 
+    Prepares a command buffer to send to an mhz19.
+    @param data tx data
+    @param buffer the tx buffer to fill
+    @param size the size of the tx buffer
+    @return number of bytes in buffer
+*/
+int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
+{
+    if (size < CMD_SIZE) {
+        return 0;
+    }
 
-bool process_byte(uint8_t b, uint8_t cmd, uint8_t data[])
+    // create command buffer
+    buffer[0] = 0xFF;
+    buffer[1] = 0x01;
+    buffer[2] = cmd;
+    for (int i = 3; i < 8; i++) {
+        buffer[i] = *data++;
+    }
+
+    // calculate checksum
+    uint8_t check = 0;
+    for (int i = 0; i < 8; i++) {
+        check += buffer[i];
+    }
+    buffer[8] = 255 - check;
+
+    return CMD_SIZE;
+}
+
+/**
+    Processes one received byte.
+    @param b the byte
+    @param cmd the command code
+    @param data the buffer to contain a received message
+    @return true if a full message was received, false otherwise
+ */
+bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[])
 {
     static uint8_t check = 0;
     static int idx = 0;
@@ -35,7 +72,7 @@ bool process_byte(uint8_t b, uint8_t cmd, uint8_t data[])
             state = DATA;
         } else {
             state = START_BYTE;
-            process_byte(b, cmd, data);
+            process_rx(b, cmd, data);
         }
         break;
     case DATA:
