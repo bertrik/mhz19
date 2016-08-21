@@ -1,12 +1,27 @@
+#include <stdio.h>
+
 #include "Arduino.h"
 #include "mhz19.h"
 
 #include "SoftwareSerial.h"
 
+#include <ESP8266WiFi.h>
+#include <WiFiManager.h>
+#include <PubSubClient.h>
+
 #define PIN_RX  D1
 #define PIN_TX  D2
 
+#define MQTT_HOST   "test.mosquitto.org"
+#define MQTT_PORT   1883
+#define MQTT_TOPIC  "bertrik/co2"
+
 SoftwareSerial sensor(PIN_RX, PIN_TX);
+WiFiManager wifiManager;
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+static char esp_id[16];
 
 static bool exchange_command(uint8_t cmd, uint8_t data[], int timeout)
 {
@@ -48,10 +63,31 @@ static bool read_temp_co2(int *co2, int *temp)
 }
 
 
+static void connect_mqtt(const char *host, int port)
+{
+    char esp_id[10];
+
+    if (!mqttClient.connected()) {
+        sprintf(esp_id, "%08X", ESP.getChipId());
+        Serial.print("Connecting to MQTT as ");
+        Serial.println(esp_id);
+        mqttClient.setServer(host, port);
+        mqttClient.connect(esp_id);
+    }
+}
+
 void setup()
 {
     Serial.begin(115200);
+
+    sprintf(esp_id, "%08X", ESP.getChipId());
+    Serial.print("ESP ID: ");
+    Serial.println(esp_id);
+
     sensor.begin(9600);
+
+    Serial.println("Starting WIFI manager ...");
+    wifiManager.autoConnect("ESP-CO2");
 }
 
 void loop()
@@ -62,8 +98,26 @@ void loop()
         Serial.println(co2, DEC);
         Serial.print("TEMP:");
         Serial.println(temp, DEC);
+
+        // maintain MQTT connection
+        if (!mqttClient.connected()) {
+            connect_mqtt(MQTT_HOST, MQTT_PORT);
+        }
+
+        // try to publish it
+        if (mqttClient.connected()) {
+            char value[16];
+            sprintf(value, "%d ppm", co2);
+            Serial.print("Publishing ");
+            Serial.print(value);
+            Serial.print("...");
+            int result = mqttClient.publish(MQTT_TOPIC, value, true);
+            Serial.println(result ? "OK" : "FAIL");
+        } else {
+            Serial.println("MQTT not connected!");
+        }
     } else {
-        Serial.println("failed!");
+        Serial.println("failed to read CO2 sensor!");
     }
     delay(5000);
 }
