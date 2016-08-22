@@ -107,10 +107,8 @@ void loop()
         // try to publish it
         if (mqttClient.connected()) {
             char value[16];
-            sprintf(value, "%d ppm", co2);
-            Serial.print("Publishing ");
-            Serial.print(value);
-            Serial.print("...");
+            sprintf(value, "%d", co2);
+            Serial.print("Publishing...");
             int result = mqttClient.publish(MQTT_TOPIC, value, true);
             Serial.println(result ? "OK" : "FAIL");
         } else {
