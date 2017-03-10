@@ -12,9 +12,9 @@
 #define PIN_RX  D1
 #define PIN_TX  D2
 
-#define MQTT_HOST   "test.mosquitto.org"
+#define MQTT_HOST   "revspace.nl"
 #define MQTT_PORT   1883
-#define MQTT_TOPIC  "bertrik/co2"
+#define MQTT_TOPIC  "revspace/sensors/co2/mhz19"
 
 SoftwareSerial sensor(PIN_RX, PIN_TX);
 WiFiManager wifiManager;
@@ -61,7 +61,6 @@ static bool read_temp_co2(int *co2, int *temp)
     }
     return result;
 }
-
 
 static void connect_mqtt(const char *host, int port)
 {
