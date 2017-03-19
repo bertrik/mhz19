@@ -12,7 +12,7 @@
 #define PIN_RX  D1
 #define PIN_TX  D2
 
-#define MQTT_HOST   "revspace.nl"
+#define MQTT_HOST   "mosquitto.space.revspace.nl"
 #define MQTT_PORT   1883
 #define MQTT_TOPIC  "revspace/sensors/co2/mhz19"
 
@@ -62,22 +62,29 @@ static bool read_temp_co2(int *co2, int *temp)
     return result;
 }
 
-static void connect_mqtt(const char *host, int port)
+static void mqtt_send(const char *topic, int value, const char *unit)
 {
-    char esp_id[10];
-
     if (!mqttClient.connected()) {
-        sprintf(esp_id, "%08X", ESP.getChipId());
-        Serial.print("Connecting to MQTT as ");
-        Serial.println(esp_id);
-        mqttClient.setServer(host, port);
+        mqttClient.setServer(MQTT_HOST, MQTT_PORT);
         mqttClient.connect(esp_id);
+    }
+    if (mqttClient.connected()) {
+        char string[64];
+        snprintf(string, sizeof(string), "%d %s", value, unit);
+        Serial.print("Publishing ");
+        Serial.print(string);
+        Serial.print(" to ");
+        Serial.print(topic);
+        Serial.print("...");
+        int result = mqttClient.publish(topic, string, true);
+        Serial.println(result ? "OK" : "FAIL");
     }
 }
 
 void setup()
 {
     Serial.begin(115200);
+    Serial.println("MHZ19 ESP reader\n");
 
     sprintf(esp_id, "%08X", ESP.getChipId());
     Serial.print("ESP ID: ");
@@ -86,7 +93,7 @@ void setup()
     sensor.begin(9600);
 
     Serial.println("Starting WIFI manager ...");
-    wifiManager.autoConnect("ESP-CO2");
+    wifiManager.autoConnect("ESP-MHZ19");
 }
 
 void loop()
@@ -98,23 +105,7 @@ void loop()
         Serial.print("TEMP:");
         Serial.println(temp, DEC);
 
-        // maintain MQTT connection
-        if (!mqttClient.connected()) {
-            connect_mqtt(MQTT_HOST, MQTT_PORT);
-        }
-
-        // try to publish it
-        if (mqttClient.connected()) {
-            char value[16];
-            sprintf(value, "%d", co2);
-            Serial.print("Publishing...");
-            int result = mqttClient.publish(MQTT_TOPIC, value, true);
-            Serial.println(result ? "OK" : "FAIL");
-        } else {
-            Serial.println("MQTT not connected!");
-        }
-    } else {
-        Serial.println("failed to read CO2 sensor!");
+        mqtt_send(MQTT_TOPIC, co2, "PPM");
     }
     delay(5000);
 }
