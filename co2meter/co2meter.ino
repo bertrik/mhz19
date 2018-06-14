@@ -23,7 +23,7 @@ PubSubClient mqttClient(wifiClient);
 
 static char esp_id[16];
 
-static bool exchange_command(uint8_t cmd, uint8_t data[], int timeout)
+static bool exchange_command(uint8_t cmd, uint8_t data[], unsigned int timeout)
 {
     // create command buffer
     uint8_t buf[9];
@@ -33,7 +33,7 @@ static bool exchange_command(uint8_t cmd, uint8_t data[], int timeout)
     sensor.write(buf, len);
 
     // wait for response
-    long start = millis();
+    unsigned long start = millis();
     while ((millis() - start) < timeout) {
         if (sensor.available() > 0) {
             uint8_t b = sensor.read();
