@@ -98,16 +98,22 @@ void setup()
 
 void loop()
 {
+    static unsigned long last_sent = 0;
     int co2, temp;
-    if (read_temp_co2(&co2, &temp)) {
-        Serial.print("CO2:");
-        Serial.println(co2, DEC);
-        Serial.print("TEMP:");
-        Serial.println(temp, DEC);
 
-        mqtt_send(MQTT_TOPIC, co2, "PPM");
+    unsigned long m = millis();
+    if ((m - last_sent) > 5000) {
+        if (read_temp_co2(&co2, &temp)) {
+            Serial.print("CO2:");
+            Serial.println(co2, DEC);
+            Serial.print("TEMP:");
+            Serial.println(temp, DEC);
+
+            mqtt_send(MQTT_TOPIC, co2, "PPM");
+        }
+        last_sent = m;
     }
-    delay(5000);
+    mqttClient.loop();
 }
 
 
