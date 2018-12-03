@@ -41,6 +41,7 @@ static bool exchange_command(uint8_t cmd, uint8_t data[], unsigned int timeout)
                 return true;
             }
         }
+        yield();
     }
 
     return false;
