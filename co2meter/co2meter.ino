@@ -63,23 +63,25 @@ static bool read_temp_co2(int *co2, int *temp)
     return result;
 }
 
-static void mqtt_send(const char *topic, int value, const char *unit)
+static bool mqtt_send(const char *topic, const char *value, bool retained)
 {
+    bool result = false;
     if (!mqttClient.connected()) {
+        Serial.print("Connecting MQTT...");
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-        mqttClient.connect(esp_id);
+        result = mqttClient.connect(esp_id, topic, 0, retained, "offline");
+        Serial.println(result ? "OK" : "FAIL");
     }
     if (mqttClient.connected()) {
-        char string[64];
-        snprintf(string, sizeof(string), "%d %s", value, unit);
         Serial.print("Publishing ");
-        Serial.print(string);
+        Serial.print(value);
         Serial.print(" to ");
         Serial.print(topic);
         Serial.print("...");
-        int result = mqttClient.publish(topic, string, true);
+        result = mqttClient.publish(topic, value, retained);
         Serial.println(result ? "OK" : "FAIL");
     }
+    return result;
 }
 
 void setup()
@@ -94,6 +96,7 @@ void setup()
     sensor.begin(9600);
 
     Serial.println("Starting WIFI manager ...");
+    wifiManager.setConfigPortalTimeout(120);
     wifiManager.autoConnect("ESP-MHZ19");
 }
 
@@ -110,7 +113,13 @@ void loop()
             Serial.print("TEMP:");
             Serial.println(temp, DEC);
 
-            mqtt_send(MQTT_TOPIC, co2, "PPM");
+            // send over MQTT
+            char message[16];
+            snprintf(message, sizeof(message), "%d ppm", co2);
+            if (!mqtt_send(MQTT_TOPIC, message, true)) {
+                Serial.println("Restarting ESP...");
+                ESP.restart();
+            }
         }
         last_sent = m;
     }
