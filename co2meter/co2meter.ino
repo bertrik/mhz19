@@ -12,9 +12,9 @@
 #define PIN_RX  D1
 #define PIN_TX  D2
 
-#define MQTT_HOST   "mosquitto.space.revspace.nl"
+#define MQTT_HOST   "stofradar.nl"
 #define MQTT_PORT   1883
-#define MQTT_TOPIC  "revspace/sensors/co2/mhz19"
+#define MQTT_TOPIC  "bertrik/sensors/co2/mhz19"
 
 SoftwareSerial sensor(PIN_RX, PIN_TX);
 WiFiManager wifiManager;
