@@ -49,14 +49,15 @@ static bool exchange_command(uint8_t cmd, uint8_t data[], unsigned int timeout)
 
 static bool read_temp_co2(int *co2, int *temp)
 {
-    uint8_t data[] = {0, 0, 0, 0, 0, 0};
+    uint8_t data[] = { 0, 0, 0, 0, 0, 0 };
     bool result = exchange_command(0x86, data, 3000);
     if (result) {
         *co2 = (data[0] << 8) + data[1];
         *temp = data[2] - 40;
 #if 1
         char raw[32];
-        sprintf(raw, "RAW: %02X %02X %02X %02X %02X %02X", data[0], data[1], data[2], data[3], data[4], data[5]);
+        sprintf(raw, "RAW: %02X %02X %02X %02X %02X %02X", data[0], data[1], data[2], data[3],
+                data[4], data[5]);
         Serial.println(raw);
 #endif
     }
@@ -125,5 +126,3 @@ void loop()
     }
     mqttClient.loop();
 }
-
-
