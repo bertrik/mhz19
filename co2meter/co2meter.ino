@@ -14,7 +14,10 @@
 
 #define MQTT_HOST   "stofradar.nl"
 #define MQTT_PORT   1883
-#define MQTT_TOPIC  "bertrik/sensors/co2/mhz19"
+#define MQTT_USER   NULL // change to your MQTT broker "Username" if needed
+#define MQTT_PASS   NULL // change to your MQTT broker "Password" if needed
+#define MQTT_TOPIC_CO2  "bertrik/sensors/co2/mhz19"
+#define MQTT_TOPIC_TEMP  "bertrik/sensors/temp/mhz19"
 
 SoftwareSerial sensor(PIN_RX, PIN_TX);
 WiFiManager wifiManager;
@@ -70,7 +73,7 @@ static bool mqtt_send(const char *topic, const char *value, bool retained)
     if (!mqttClient.connected()) {
         Serial.print("Connecting MQTT...");
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-        result = mqttClient.connect(esp_id, topic, 0, retained, "offline");
+        result = mqttClient.connect(esp_id, MQTT_USER, MQTT_PASS, topic, 0, retained, "offline");
         Serial.println(result ? "OK" : "FAIL");
     }
     if (mqttClient.connected()) {
@@ -117,10 +120,15 @@ void loop()
             // send over MQTT
             char message[16];
             snprintf(message, sizeof(message), "%d ppm", co2);
-            if (!mqtt_send(MQTT_TOPIC, message, true)) {
+            if (!mqtt_send(MQTT_TOPIC_CO2, message, true)) {
                 Serial.println("Restarting ESP...");
                 ESP.restart();
             }
+            snprintf(message, sizeof(message), "%d °C", temp);
+            if (!mqtt_send(MQTT_TOPIC_TEMP, message, true)) {
+                Serial.println("Restarting ESP...");
+                ESP.restart();
+            }   
         }
         last_sent = m;
     }
