@@ -74,7 +74,7 @@ void loop()
 
     unsigned long m = millis();
     if ((m - last_sent) > 5000) {
-        if (mhz19.readCo2(&co2, &temp)) {
+        if (mhz19.readCO2(&co2, &temp)) {
             Serial.printf("CO2 = %d ppm, Temperature = %d degC\n", co2, temp);
 
 #ifdef SEND_MQTT

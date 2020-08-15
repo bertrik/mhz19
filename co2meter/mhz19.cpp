@@ -17,9 +17,10 @@ MHZ19::MHZ19(Stream *serial)
     _check = 0;
     _idx = 0;
     _len = 0;
+    memset(_data, 0, sizeof(_data));
 }
 
-int MHZ19::sendCommand(uint8_t cmd_data[], uint8_t rsp_data[], unsigned int timeout_ms)
+int MHZ19::sendCommand(const uint8_t cmd_data[], uint8_t rsp_data[], unsigned int timeout_ms)
 {
     uint8_t cmdbuf[9];
 
@@ -35,7 +36,7 @@ int MHZ19::sendCommand(uint8_t cmd_data[], uint8_t rsp_data[], unsigned int time
     cmdbuf[idx++] = 255 - check;
 
     // send the command
-    _serial->write(cmdbuf, idx++);
+    _serial->write(cmdbuf, idx);
 
     // wait for response
     unsigned long start = millis();
@@ -53,7 +54,7 @@ int MHZ19::sendCommand(uint8_t cmd_data[], uint8_t rsp_data[], unsigned int time
     return 0;
 }
 
-bool MHZ19::readCo2(int *co2, int *temp)
+bool MHZ19::readCO2(int *co2, int *temp)
 {
     uint8_t cmd_data[] = { 0x86, 0, 0, 0, 0, 0 };
     uint8_t rsp_data[6];
