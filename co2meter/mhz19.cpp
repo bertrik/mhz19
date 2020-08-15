@@ -1,91 +1,111 @@
+#include "Arduino.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 
-#define CMD_SIZE 9 
+#include <Stream.h>
 
-typedef enum {
-    START_BYTE,
-    COMMAND,
-    DATA,
-    CHECK
-} state_t;
+#include "mhz19.h"
 
-/** 
-    Prepares a command buffer to send to an mhz19.
-    @param data tx data
-    @param buffer the tx buffer to fill
-    @param size the size of the tx buffer
-    @return number of bytes in buffer
-*/
-int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
+#define CMD_SIZE 9
+#define TIMEOUT_MS  1000
+
+MHZ19::MHZ19(Stream *serial)
 {
-    if (size < CMD_SIZE) {
-        return 0;
+    _serial = serial;
+    _state = START_BYTE;
+    _check = 0;
+    _idx = 0;
+    _len = 0;
+}
+
+int MHZ19::sendCommand(uint8_t cmd_data[], uint8_t rsp_data[], unsigned int timeout_ms)
+{
+    uint8_t cmdbuf[9];
+
+    // build command
+    int idx = 0;
+    cmdbuf[idx++] = 0xFF;
+    cmdbuf[idx++] = 0x01;
+    uint8_t check = cmdbuf[0] + cmdbuf[1];
+    for (int i = 0; i < 6; i++) {
+        cmdbuf[idx++] = cmd_data[i];
+        check += cmd_data[i];
+    }
+    cmdbuf[idx++] = 255 - check;
+
+    // send the command
+    _serial->write(cmdbuf, idx++);
+
+    // wait for response
+    unsigned long start = millis();
+    while ((millis() - start) < timeout_ms) {
+        if (_serial->available() > 0) {
+            uint8_t b = _serial->read();
+            if (process_rx(b, cmd_data[0])) {
+                memcpy(rsp_data, _data, _len);
+                return _len;
+            }
+        }
+        yield();
     }
 
-    // create command buffer
-    buffer[0] = 0xFF;
-    buffer[1] = 0x01;
-    buffer[2] = cmd;
-    for (int i = 3; i < 8; i++) {
-        buffer[i] = *data++;
-    }
+    return 0;
+}
 
-    // calculate checksum
-    uint8_t check = 0;
-    for (int i = 0; i < 8; i++) {
-        check += buffer[i];
-    }
-    buffer[8] = 255 - check;
+bool MHZ19::readCo2(int *co2, int *temp)
+{
+    uint8_t cmd_data[] = { 0x86, 0, 0, 0, 0, 0 };
+    uint8_t rsp_data[6];
 
-    return CMD_SIZE;
+    int rsp_len = sendCommand(cmd_data, rsp_data, TIMEOUT_MS);
+    if (rsp_len > 2) {
+        *co2 = (rsp_data[0] << 8) + rsp_data[1];
+        *temp = rsp_data[2] - 40;
+        return true;
+    }
+    return false;
 }
 
 /**
     Processes one received byte.
     @param b the byte
     @param cmd the command code
-    @param data the buffer to contain a received message
     @return true if a full message was received, false otherwise
  */
-bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[])
+bool MHZ19::process_rx(uint8_t b, uint8_t cmd)
 {
-    static uint8_t check = 0;
-    static int idx = 0;
-    static int len = 0;
-    static state_t state = START_BYTE;
-
     // update checksum
-    check += b;
+    _check += b;
 
-    switch (state) {
+    switch (_state) {
     case START_BYTE:
         if (b == 0xFF) {
-            check = 0;
-            state = COMMAND;
+            _check = 0;
+            _state = COMMAND;
         }
         break;
     case COMMAND:
         if (b == cmd) {
-            idx = 0;
-            len = 6;
-            state = DATA;
+            _idx = 0;
+            _len = 6;
+            _state = DATA;
         } else {
-            state = START_BYTE;
-            process_rx(b, cmd, data);
+            _state = START_BYTE;
+            process_rx(b, cmd);
         }
         break;
     case DATA:
-        data[idx++] = b;
-        if (idx == len) {
-            state = CHECK;
+        _data[_idx++] = b;
+        if (_idx == _len) {
+            _state = CHECK;
         }
         break;
     case CHECK:
-        state = START_BYTE;
-        return (check == 0);
+        _state = START_BYTE;
+        return (_check == 0);
     default:
-        state = START_BYTE;
+        _state = START_BYTE;
         break;
     }
 
